@@ -97,6 +97,34 @@
         grouped      (py/py. lf group_by group-strs)]
     (py/py. grouped agg compiled-aggs)))
 
+(defmethod execute-step :join
+  [lf step]
+  (assert-lazyframe lf :join)
+  (let [[_ other-lf & {:keys [how on left-on right-on]}] step
+        how-str (name (or how :inner))
+        left-cols (or left-on on)
+        right-cols (or right-on on)]
+    (py/call-attr-kw lf "join"
+      [other-lf]
+      {"left_on" (py/->py-list (mapv interop/kw->col-name left-cols))
+       "right_on" (py/->py-list (mapv interop/kw->col-name right-cols))
+       "how" how-str})))
+
+(defmethod execute-step :unique
+  [lf step]
+  (assert-lazyframe lf :unique)
+  (let [[_ cols] step]
+    (if cols
+      (py/py. lf unique :subset (py/->py-list (mapv interop/kw->col-name cols)))
+      (py/py. lf unique))))
+
+(defmethod execute-step :rename
+  [lf step]
+  (assert-lazyframe lf :rename)
+  (let [[_ mapping] step
+        py-mapping (into {} (map (fn [[k v]] [(interop/kw->col-name k) v])) mapping)]
+    (py/py. lf rename py-mapping)))
+
 ;; ---------------------------------------------------------------------------
 ;; Terminal operations
 ;; ---------------------------------------------------------------------------
@@ -125,7 +153,7 @@
   (throw (ex-info (str "Unknown pipeline step: " (first step)
                        ". Supported steps: :scan-csv, :scan-parquet, :from-maps, "
                        ":filter, :select, :with-columns, :sort, :limit, :group-by, "
-                       ":collect, :explain")
+                       ":join, :unique, :rename, :collect, :explain")
                   {:step step})))
 
 ;; ---------------------------------------------------------------------------

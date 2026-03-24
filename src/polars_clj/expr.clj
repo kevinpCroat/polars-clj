@@ -133,6 +133,81 @@
 (def-unary-agg :n-unique   n_unique)
 (def-unary-agg :is-null    is_null)
 (def-unary-agg :is-not-null is_not_null)
+(def-unary-agg :abs        abs)
+(def-unary-agg :sqrt       sqrt)
+
+;; ---------------------------------------------------------------------------
+;; When / Then / Otherwise (conditional)
+;; ---------------------------------------------------------------------------
+
+(defmethod compile-expr :when
+  [[_ pred then-val else-val]]
+  (let [pl-mod (interop/pl-mod)
+        when-obj (py/call-attr pl-mod "when" (compile-expr pred))
+        then-obj (py/py. when-obj then (compile-expr then-val))]
+    (if else-val
+      (py/py. then-obj otherwise (compile-expr else-val))
+      then-obj)))
+
+;; ---------------------------------------------------------------------------
+;; String operations — :str/* namespace
+;; ---------------------------------------------------------------------------
+
+(defmacro ^:private def-str-unary
+  "Define a compile-expr method for a unary string accessor operation.
+   `dispatch-kw` is the DSL keyword (e.g. :str/to-lowercase), `py-method`
+   is the Python method name on the .str accessor (e.g. to_lowercase)."
+  [dispatch-kw py-method]
+  `(defmethod compile-expr ~dispatch-kw
+     [[_# inner#]]
+     (let [str-acc# (py/get-attr (compile-expr inner#) "str")]
+       (py/py. str-acc# ~py-method))))
+
+(defmacro ^:private def-str-binary
+  "Define a compile-expr method for a binary string accessor operation
+   (inner expression + one argument).
+   `dispatch-kw` is the DSL keyword (e.g. :str/contains), `py-method`
+   is the Python method name on the .str accessor (e.g. contains)."
+  [dispatch-kw py-method]
+  `(defmethod compile-expr ~dispatch-kw
+     [[_# inner# arg#]]
+     (let [str-acc# (py/get-attr (compile-expr inner#) "str")]
+       (py/py. str-acc# ~py-method (compile-expr arg#)))))
+
+(def-str-unary :str/to-lowercase to_lowercase)
+(def-str-unary :str/to-uppercase to_uppercase)
+(def-str-unary :str/len          len_chars)
+(def-str-unary :str/strip-chars  strip_chars)
+
+(def-str-binary :str/contains    contains)
+(def-str-binary :str/starts-with starts_with)
+(def-str-binary :str/ends-with   ends_with)
+
+(defmethod compile-expr :str/replace
+  [[_ inner old-val new-val]]
+  (let [str-acc (py/get-attr (compile-expr inner) "str")]
+    (py/py. str-acc replace (compile-expr old-val) (compile-expr new-val))))
+
+;; ---------------------------------------------------------------------------
+;; Cast — type conversion
+;; ---------------------------------------------------------------------------
+
+(def ^:private dtype-map
+  "Map of DSL dtype keywords to Polars dtype attribute names."
+  {:int8     "Int8"     :int16    "Int16"    :int32    "Int32"    :int64    "Int64"
+   :uint8    "UInt8"    :uint16   "UInt16"   :uint32   "UInt32"   :uint64   "UInt64"
+   :float32  "Float32"  :float64  "Float64"
+   :utf8     "Utf8"     :string   "String"
+   :bool     "Boolean"  :boolean  "Boolean"
+   :date     "Date"     :datetime "Datetime"})
+
+(defmethod compile-expr :cast
+  [[_ inner dtype-kw]]
+  (let [dtype-name (or (get dtype-map dtype-kw)
+                       (throw (ex-info (str "Unknown dtype: " dtype-kw)
+                                       {:dtype dtype-kw})))
+        dtype-obj  (py/get-attr (interop/pl-mod) dtype-name)]
+    (py/py. (compile-expr inner) cast dtype-obj)))
 
 ;; ---------------------------------------------------------------------------
 ;; Default — unknown expression form

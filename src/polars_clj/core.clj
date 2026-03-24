@@ -188,6 +188,31 @@
   [lf groups & {:keys [agg]}]
   (pipeline/execute-step lf [:group-by groups :agg agg]))
 
+(defn join
+  "Join `lf` with `other` LazyFrame.
+
+   Options (as keyword args):
+     :how      — join type: :inner, :left, :outer, :cross, :semi, :anti (default :inner)
+     :on       — column(s) to join on when name is same in both (keyword or vector)
+     :left-on  — left join column(s) (keyword or vector)
+     :right-on — right join column(s) (keyword or vector)"
+  [lf other & {:keys [how on left-on right-on]}]
+  (pipeline/execute-step lf [:join other
+                             :how (or how :inner)
+                             :left-on (when left-on (if (keyword? left-on) [left-on] left-on))
+                             :right-on (when right-on (if (keyword? right-on) [right-on] right-on))
+                             :on (when on (if (keyword? on) [on] on))]))
+
+(defn unique
+  "Remove duplicate rows from `lf`, optionally considering only `cols`."
+  ([lf] (pipeline/execute-step lf [:unique]))
+  ([lf cols] (pipeline/execute-step lf [:unique cols])))
+
+(defn rename
+  "Rename columns. `mapping` is a map of old-name keywords to new-name strings."
+  [lf mapping]
+  (pipeline/execute-step lf [:rename mapping]))
+
 ;; ---------------------------------------------------------------------------
 ;; Terminal functions — take a LazyFrame, return Clojure data
 ;; ---------------------------------------------------------------------------
