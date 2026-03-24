@@ -1,0 +1,22 @@
+# Clojure
+.cpcache/
+classes/
+target/
+*.jar
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.calva/
+.nrepl-port
+.lsp/
+.clj-kondo/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc

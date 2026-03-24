@@ -1,0 +1,11 @@
+name,department,salary,age,active
+Alice,Engineering,95000,32,true
+Bob,Marketing,65000,28,true
+Carol,Engineering,105000,41,true
+Dave,Marketing,72000,35,false
+Eve,Engineering,88000,29,true
+Frank,Sales,58000,26,true
+Grace,Sales,62000,33,true
+Hank,Engineering,115000,45,true
+Ivy,Marketing,70000,31,false
+Jack,Sales,55000,24,true
